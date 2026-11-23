@@ -3,55 +3,116 @@ package main
 import (
 	"file-uploader/internal/downloader"
 	"file-uploader/internal/path"
+	// "file-uploader/internal/progress"
+	
+
+	// "file-uploader/internal/progress"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
-func main() {
+type Config struct {
+	URL     string
+	Out     string
+	Verbose bool
+}
 
-	cmd, _, ok := strings.Cut(strings.Join(os.Args[1:], " "), "=")
-	if len(os.Args) < 2 {
+func main() {
+	cfg := &Config{}
+
+	cmd := os.Args
+	fmt.Println(len(cmd))
+
+	if len(cmd) < 2 {
 		fmt.Println("использование: app -url=https://...")
 		os.Exit(1)
 	}
-	if !ok {
-		fmt.Println("должен быть знак равно")
+
+	flag.StringVar(&cfg.URL, "url", "", "URL файла для загрузки (обязательно)")
+	flag.StringVar(&cfg.Out, "out", "", "Путь для сохранения файла")
+	flag.BoolVar(&cfg.Verbose, "v", false, "Выводить подробную информацию")
+
+	flag.Parse()
+
+	if strings.TrimSpace(cfg.URL) == "" {
+		fmt.Println("обязательный флаг --url не указан")
+		os.Exit(1)
+
+	}
+
+	body, resp, errFetch := downloader.FetchURL(cfg.URL)
+	if errFetch != nil {
+		fmt.Println("ошибка:", errFetch)
 		os.Exit(1)
 	}
 
-	switch cmd {
-	case "--url":
-		url := flag.String("url", "", "url")
-		flag.Parse()
-		if strings.TrimSpace(*url) == "" {
-			fmt.Println("Обязательный флаг --url не указан")
+
+
+	if strings.TrimSpace(cfg.Out) != "" {
+
+		if filepath.Ext(cfg.Out) == "" {
+			fmt.Println("файл указан без расширения, используйте -out=file.jpg")
 			os.Exit(1)
 
 		}
 
-		body, resp, errFetch := downloader.FetchURL(*url)
-		if errFetch != nil {
-			fmt.Println("ошибка:", errFetch)
+		if len(cmd) >4 {
+			fmt.Println("использование: app -url=https://... --out=file.text")
 			os.Exit(1)
 		}
+		
+			
 
-		path := path.NamePath(resp, *url)
-
-		size, errSave := downloader.SaveStream(body, resp, path)
+		size, errSave := downloader.SaveStream(body, resp, cfg.Out,cfg.Verbose)
 		if errSave != nil {
 			fmt.Println("ошибка")
 			os.Exit(1)
 		}
 
-		fmt.Println("файл успешно загружен размер", size)
+		
+		fmt.Printf("файл успешно загружен: %q, размер: %d байт\n", cfg.Out, size)
+		
+		
+	} else {
 
-	default:
-		fmt.Println("неизвестная команда:", cmd)
-		fmt.Println("доступные команды: --url")
-		os.Exit(1)
+		if len(cmd) > 3 {
+			fmt.Println("использование: app -url=https://...")
+			os.Exit(1)
+		}
 
+		filePath := path.NamePath(resp, cfg.URL)
+
+		size, errSave := downloader.SaveStream(body, resp, filePath,cfg.Verbose)
+		if errSave != nil {
+			fmt.Println("ошибка")
+			os.Exit(1)
+		}
+
+		fmt.Printf("файл успешно загружен: %q, размер: %d байт\n", filePath, size)
 	}
 
+
+
+
+	// if cfg.Verbose{
+	// 	if len(cmd) < 3 {
+	// 		fmt.Println("использование: app -v")
+	// 		os.Exit(1)
+	// 	}
+
+	// 	_, errSave := downloader.SaveStream(body, resp, cfg.Out,true)
+	// 	if errSave != nil {
+	// 		fmt.Println("ошибка")
+	// 		os.Exit(1)
+	// 	}
+		
+
+
+	// }
+	
 }
+
+

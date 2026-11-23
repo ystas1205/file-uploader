@@ -8,18 +8,34 @@ import (
 	"os"
 )
 
-func SaveStream(body io.ReadCloser, resp *http.Response, path string) (int64, error) {
+func SaveStream(
+	body io.ReadCloser,
+	resp *http.Response,
+	path string,
+	bar bool) (int64, error) {
+
 	defer body.Close()
 	output, err := os.Create(path)
 	if err != nil {
 		return 0, fmt.Errorf("ошибка создания файла %w", err)
 	}
 	defer output.Close()
-	size, err := io.Copy(io.MultiWriter(output, progress.ProgressBar(resp)), body)
-	if err != nil {
-		panic(err)
+
+	if !bar {
+		size, err := io.Copy(output, body)
+		if err != nil {
+			panic(err)
+		}
+		return size, nil
+	} else {
+
+		size, err := io.Copy(io.MultiWriter(output, progress.ProgressBar(resp)), body)
+		if err != nil {
+			panic(err)
+		}
+		return size, nil
+
 	}
-	return size, nil
 
 }
 
