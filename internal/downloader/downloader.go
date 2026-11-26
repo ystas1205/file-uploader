@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"os"
 )
-
+// SaveStream записывает файл из тела ответа и возвращает
+// количество записанных байт и ошибку.
 func SaveStream(
 	body io.ReadCloser,
 	resp *http.Response,
@@ -15,16 +16,16 @@ func SaveStream(
 	bar bool) (int64, error) {
 
 	defer body.Close()
-	output, err := os.Create(path)
-	if err != nil {
-		return 0, fmt.Errorf("ошибка создания файла %w", err)
+	output, errCreate := os.Create(path)
+	if errCreate != nil {
+		return 0, fmt.Errorf("создать файл %q: %w", path, errCreate)
 	}
 	defer output.Close()
 
 	if !bar {
 		size, err := io.Copy(output, body)
 		if err != nil {
-			panic(err)
+			return size, fmt.Errorf("скопировать данные в файл: %w", err)
 		}
 		return size, nil
 	} else {
@@ -34,24 +35,25 @@ func SaveStream(
 			panic(err)
 		}
 		return size, nil
-
 	}
-
 }
 
-func FetchURL(url string) (io.ReadCloser, *http.Response, error) {
+// FetchURL делает GET-запрос по указанному URL и возвращает
+// тело ответа и *http.Response для дальнейшей обработки.
+func FetchURL(url string, userAgent string) (io.ReadCloser, *http.Response, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("создания запроса %q: %w", url, err)
+		return nil, nil, fmt.Errorf("создать запрос %q: %w", url, err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	req.Header.Set("User-Agent", userAgent)
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("выполнения запроса %q: %w", req.URL, err)
+		return nil, nil, fmt.Errorf("выполнить запрос %q: %w", req.URL, err)
 	}
 	if response.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("неуспешный ответ от сервера: %s", response.Status)
+		return nil, nil, fmt.Errorf("неожиданный статус ответа: %q", response.Status)
 	}
 	return response.Body, response, nil
 
